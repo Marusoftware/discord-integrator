@@ -1,5 +1,7 @@
 from typing import TypedDict
-import httpx, re
+import httpx, re, logging
+
+logger=logging.getLogger("github")
 
 class DeviceCode(TypedDict):
     device_code: str
@@ -90,7 +92,8 @@ async def send_invitation(access_token:str, repo:str, user:str, auto_accept:bool
                     return True
                 else:
                     return False
-        except:
+        except Exception as e:
+            logger.exception("send_invitation Error")
             return False
 
 async def accept_invitation(access_token:str, invitation_id:str):

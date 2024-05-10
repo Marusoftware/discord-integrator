@@ -9,7 +9,7 @@ RUN adduser --system --shell /bin/bash nonroot && \
 
 USER nonroot
 
-COPY ./pyproject.toml ./poetry.lock ./src ./migrations ./
+COPY . .
 
 RUN poetry install --no-cache --no-root --without dev --with postgres
 
