@@ -3,7 +3,7 @@ from tortoise.fields import *
 
 __all__=[
     "User",
-    "Repo"
+    "Invitation"
 ]
 
 class User(Model):
@@ -16,7 +16,7 @@ class User(Model):
     
 class Invitation(Model):
     id = UUIDField(pk=True)
-    owner = ForeignKeyField("models.User", related_name="invitations", on_delete=CASCADE)
+    owner:ForeignKeyRelation[User] = ForeignKeyField("models.User", related_name="invitations", on_delete=SET_NULL, null=True)
     is_role_perm = BooleanField()
     permit_user = BigIntField()
     discord_message_id = BigIntField(unique=True)

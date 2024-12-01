@@ -82,13 +82,17 @@ class Invitation(Modal):
             await interaction.response.send_message("Error!", ephemeral=True)
 
 class GetInvitationStored(View):
-    def __init__(self, invitation:InvitationDB, user:User, timeout: float | None = None):
+    def __init__(self, invitation:InvitationDB, user:User, target:User|None, timeout: float | None = None):
         super().__init__(timeout=timeout)
         self.invitation=invitation
         self.user=user
+        self.target=target
     @button(label="Yes, and please accept invitation too!", custom_id="get_inv_yes_accept")
     async def yes_accept(self, button:Button, interaction: Interaction):
-        if await send_invitation(access_token=self.invitation.owner.access_token, repo=self.invitation.repo, user=self.user.username, auto_accept=True):
+        if self.target is None:
+            await interaction.respond("Signup required!", ephemeral=True)
+            return
+        if await send_invitation(access_token=self.invitation.owner.access_token, repo=self.invitation.repo, user=self.user.username, auto_accept_token=self.target.access_token):
             await interaction.response.send_message("Invitation was sent!", ephemeral=True)
             self.invitation.count+=1
             await self.invitation.save()
@@ -131,7 +135,7 @@ class GetInvitation(View):
                 return
             await interaction.response.send_modal(Invitation(invitation))
         else:
-            await interaction.respond("Do you want to use already signed in github user?", view=GetInvitationStored(invitation=invitation, user=user), ephemeral=True)
+            await interaction.respond(f"Do you want to use already signed in github user '{user.username}'?", view=GetInvitationStored(invitation=invitation, user=user, target=user), ephemeral=True)
 
 @bot.slash_command(description="Create invitation for specified user/role")
 async def invite(ctx: ApplicationContext, user: Option(Mentionable, description="Who to create invitation"), # type: ignore

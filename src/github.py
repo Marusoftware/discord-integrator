@@ -19,7 +19,8 @@ GITHUB_GET_ME="https://api.github.com/user"
 GITHUB_GET_USER="https://api.github.com/users/{username}"
 GITHUB_CREATE_INVITATION="https://api.github.com/repos/{repo}/collaborators/{username}"
 GITHUB_CREATE_ORG_INVITATION="https://api.github.com/orgs/{org}/invitations"
-GITHUB_ACCEPT_INVITATION="/user/repository_invitations/{invitation_id}"
+GITHUB_ACCEPT_INVITATION="https://api.github.com/user/repository_invitations/{invitation_id}"
+GITHUB_ACCEPT_ORG_INVITATION="https://api.github.com/user/memberships/orgs/{org}"
 GITHUB_SEARCH="https://api.github.com/search/users"
 GITHUB_DEVICE_OAUTH="https://github.com/login/device/code"
 GITHUB_DEVICE_OAUTH_TOKEN="https://github.com/login/oauth/access_token"
@@ -60,7 +61,7 @@ async def get_userid(username:str) -> str:
             "Accept": "application/vnd.github+json",
         })).json()["id"]
 
-async def send_invitation(access_token:str, repo:str, user:str, auto_accept:bool=False) -> bool:
+async def send_invitation(access_token:str, repo:str, user:str, auto_accept_token:str=None) -> bool:
     async with httpx.AsyncClient() as client:
         try:
             if "/" not in repo:
@@ -72,7 +73,11 @@ async def send_invitation(access_token:str, repo:str, user:str, auto_accept:bool
                     "Accept": "application/vnd.github+json",
                     "Authorization": f"Bearer {access_token}"
                 }, json=req)
-                if res.status_code==201:
+                if auto_accept_token:
+                    accepted=await accept_invitation(auto_accept_token, res["id"], is_org=True)
+                else:
+                    accepted = True
+                if res.status_code==201 and accepted:
                     return True
                 else:
                     return False
@@ -86,20 +91,28 @@ async def send_invitation(access_token:str, repo:str, user:str, auto_accept:bool
                     "Accept": "application/vnd.github+json",
                     "Authorization": f"Bearer {access_token}"
                 })
-                if auto_accept:
-                    accepted=await accept_invitation(access_token, res["id"])
+                if auto_accept_token:
+                    accepted=await accept_invitation(auto_accept_token, res["id"], is_org=False)
+                else:
+                    accepted = True
                 if res.status_code >= 200 and accepted:
                     return True
                 else:
                     return False
-        except Exception as e:
-            logger.exception("send_invitation Error")
+        except:
             return False
 
-async def accept_invitation(access_token:str, invitation_id:str):
+async def accept_invitation(access_token:str, target:str, is_org:bool=False):
     async with httpx.AsyncClient() as client:
-        res=await client.patch(GITHUB_ACCEPT_INVITATION.replace("{invitation_id}", invitation_id), headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {access_token}"
-        })
-    return res.status_code in (204, 304)
+        if is_org:
+            res=await client.patch(GITHUB_ACCEPT_ORG_INVITATION.replace("{org}", target), headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {access_token}"
+            }, json={"state": "active"})
+            return res.status_code == 200
+        else:
+            res=await client.patch(GITHUB_ACCEPT_INVITATION.replace("{invitation_id}", target), headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {access_token}"
+            })
+            return res.status_code in (204, 304)
